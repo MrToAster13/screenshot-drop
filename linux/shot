@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# shot: upload the clipboard image (or a PNG file) to the Mac mini's ~/screenshots
+# and put the remote path on the clipboard.
+#   shot              upload clipboard image
+#   shot file.png     upload a file
+set -uo pipefail
+
+HOST="${SHOT_HOST:-mini@minis-mac-mini.tailb84c7f.ts.net}"
+KEY="${SHOT_KEY:-$HOME/.ssh/screenshot_drop_ed25519}"
+
+notify() {  # small, 2-second notification; silent if notify-send is missing
+  if command -v notify-send >/dev/null; then
+    notify-send -a shot -t 2000 "$1" ${2:+"$2"} 2>/dev/null || true
+  fi
+  return 0
+}
+fail() { echo "shot: $1" >&2; notify "Upload failed" "$1"; exit 1; }
+
+TMP=$(mktemp --suffix=.png 2>/dev/null || mktemp)
+trap 'rm -f "$TMP"' EXIT
+
+if [ $# -ge 1 ]; then
+  [ -f "$1" ] || fail "no such file: $1"
+  cp "$1" "$TMP"
+else
+  command -v wl-paste >/dev/null || fail "wl-paste missing (pacman -S wl-clipboard)"
+  wl-paste --list-types 2>/dev/null | grep -qx 'image/png' || fail "no image on clipboard"
+  wl-paste --type image/png > "$TMP" 2>/dev/null || fail "could not read clipboard"
+fi
+[ -s "$TMP" ] || fail "image is empty"
+[ -f "$KEY" ] || fail "key missing: $KEY (run install.sh)"
+
+OUT=$(ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes \
+      -o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 \
+      "$HOST" < "$TMP" 2>&1)
+RC=$?
+REMOTE=$(printf '%s\n' "$OUT" | grep -m1 '^/Users/.*\.png$')
+if [ $RC -ne 0 ] || [ -z "$REMOTE" ]; then
+  fail "$(printf '%s\n' "$OUT" | grep -v 'Pseudo-terminal' | tail -1)"
+fi
+
+if [ -n "${WAYLAND_DISPLAY:-}" ] && command -v wl-copy >/dev/null; then
+  printf '%s' "$REMOTE" | wl-copy
+fi
+echo "$REMOTE"
+notify "Uploaded, path copied"
