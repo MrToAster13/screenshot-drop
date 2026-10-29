@@ -6,7 +6,6 @@
 param([string]$File = "", [switch]$Quiet)
 
 $ErrorActionPreference = "Stop"
-$HostName = if ($env:SHOT_HOST) { $env:SHOT_HOST } else { "mini@minis-mac-mini.tailb84c7f.ts.net" }
 $Key      = if ($env:SHOT_KEY)  { $env:SHOT_KEY }  else { Join-Path $env:USERPROFILE ".ssh\screenshot_drop_ed25519" }
 $Ssh      = Join-Path $env:WINDIR "System32\OpenSSH\ssh.exe"
 if (-not (Test-Path $Ssh)) { $Ssh = "ssh.exe" }
@@ -30,6 +29,18 @@ function Fail([string]$Msg) {
     Notify "Upload failed" $Msg
     exit 1
 }
+
+# The upload host (user@host) comes from SHOT_HOST or, for the hotkey, from the
+# first non-comment line of the config file. The repo is public, so it ships no default.
+$Config = Join-Path $env:APPDATA "screenshot-drop\host"
+$HostName = $env:SHOT_HOST
+if (-not $HostName -and (Test-Path $Config)) {
+    $HostName = Get-Content $Config | ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -and -not $_.StartsWith("#") } | Select-Object -First 1
+}
+if (-not $HostName) { Fail "no upload host: set SHOT_HOST=user@host or write it to $Config" }
+$HostName = $HostName.Trim()
+if ($HostName -notmatch '^[A-Za-z0-9._@:-]+$' -or $HostName.StartsWith("-")) { Fail "bad upload host: $HostName" }
 
 $tmp = Join-Path $env:TEMP ("shot-" + [guid]::NewGuid().ToString("N") + ".png")
 try {
