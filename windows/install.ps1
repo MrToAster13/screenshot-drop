@@ -20,7 +20,15 @@ if (-not (Test-Path $key)) {
     Write-Host "Created upload key $key"
 }
 
-# 3. 'shot' function in the PowerShell profile
+# 3. Upload host: kept in an untracked config file, because this repo is public.
+$config = Join-Path $env:APPDATA "screenshot-drop\host"
+if (-not (Test-Path $config) -and $env:SHOT_HOST) {
+    New-Item -ItemType Directory -Force (Split-Path -Parent $config) | Out-Null
+    Set-Content -Path $config -Value $env:SHOT_HOST -Encoding ASCII
+    Write-Host "Wrote upload host to $config"
+}
+
+# 4. 'shot' function in the PowerShell profile
 $line = "function shot { powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File `"$here\shot.ps1`" @args }"
 if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Force $PROFILE | Out-Null }
 if (-not (Select-String -Path $PROFILE -SimpleMatch "shot.ps1" -Quiet)) {
@@ -28,7 +36,7 @@ if (-not (Select-String -Path $PROFILE -SimpleMatch "shot.ps1" -Quiet)) {
     Write-Host "Added 'shot' to $PROFILE"
 }
 
-# 4. AutoHotkey hotkey at login
+# 5. AutoHotkey hotkey at login
 $ahkExe = @(
     "$env:ProgramFiles\AutoHotkey\v2\AutoHotkey64.exe",
     "$env:LOCALAPPDATA\Programs\AutoHotkey\v2\AutoHotkey64.exe"
@@ -47,6 +55,12 @@ if (-not $ahkExe) {
     $s.Save()
     Start-Process $ahkExe "`"$here\shot.ahk`""
     Write-Host "Hotkey Win+Shift+U active and set to start at login."
+}
+
+if (-not (Test-Path $config)) {
+    Write-Host ""
+    Write-Host "Write the Mac mini's user@host (ask Hermes) to $config, one line," -ForegroundColor Yellow
+    Write-Host "or set SHOT_HOST=user@host and run this script again."
 }
 
 Write-Host ""

@@ -5,7 +5,13 @@
 #   shot file.png     upload a file
 set -uo pipefail
 
-HOST="${SHOT_HOST:-mini@minis-mac-mini.tailb84c7f.ts.net}"
+# The upload host (user@host) comes from SHOT_HOST or, for the hotkey, from the
+# first non-comment line of the config file. The repo is public, so it ships no default.
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/screenshot-drop/host"
+HOST="${SHOT_HOST:-}"
+if [ -z "$HOST" ] && [ -f "$CONFIG" ]; then
+  HOST=$(grep -v '^[[:space:]]*#' "$CONFIG" | grep -m1 -v '^[[:space:]]*$' | tr -d '[:space:]')
+fi
 KEY="${SHOT_KEY:-$HOME/.ssh/screenshot_drop_ed25519}"
 
 notify() {  # small, 2-second notification; silent if notify-send is missing
@@ -15,6 +21,10 @@ notify() {  # small, 2-second notification; silent if notify-send is missing
   return 0
 }
 fail() { echo "shot: $1" >&2; notify "Upload failed" "$1"; exit 1; }
+
+[ -n "$HOST" ] || fail "no upload host: set SHOT_HOST=user@host or write it to $CONFIG"
+case "$HOST" in -*) fail "bad upload host: $HOST" ;; esac
+[[ "$HOST" =~ ^[A-Za-z0-9._@:-]+$ ]] || fail "bad upload host: $HOST"
 
 TMP=$(mktemp --suffix=.png 2>/dev/null || mktemp)
 trap 'rm -f "$TMP"' EXIT
