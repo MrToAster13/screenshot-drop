@@ -63,7 +63,8 @@ assert_eq "shot rejects a host starting with -" "1" "$rc"
 assert_eq "ssh not called for a dash host" "no" "$([ -f "$T/ssh-args" ] && echo yes || echo no)"
 
 # windows/shot.ps1: no built-in host, reads the config file, clear message.
-# pwsh is not installed on the test host, so these are static checks.
+# Static checks, so they run without PowerShell. tests/test_shot_ps1.sh runs
+# the script itself where PowerShell is present.
 ps1=$(cat windows/shot.ps1)
 # Any user@host in shot.ps1 must be the generic "user@host" text.
 ps1_hosts=$(grep -oE '[A-Za-z0-9._<>-]+@[A-Za-z0-9._<>-]+' windows/shot.ps1 | grep -vx 'user@host')

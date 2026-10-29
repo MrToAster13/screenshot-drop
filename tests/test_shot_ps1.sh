@@ -48,6 +48,15 @@ out=$(run_ps "SHOT_HOST=a@b;calc"); rc=$?
 assert_eq "shot.ps1 rejects a host with other characters" "1" "$rc"
 assert_contains "odd host message" "bad upload host" "$out"
 
+# Review finding: a case-insensitive match lets .NET fold non-ASCII letters
+# into [A-Za-z]. U+212A KELVIN SIGN folds to k, U+0130 to i. bash rejects both.
+out=$(run_ps "SHOT_HOST=a@b$(printf '\xe2\x84\xaa')x"); rc=$?
+assert_eq "shot.ps1 rejects a Kelvin sign host" "1" "$rc"
+assert_contains "Kelvin sign host message" "bad upload host" "$out"
+out=$(run_ps "SHOT_HOST=a@b$(printf '\xc4\xb0')x"); rc=$?
+assert_eq "shot.ps1 rejects a dotted capital I host" "1" "$rc"
+assert_contains "dotted I host message" "bad upload host" "$out"
+
 printf -- '-oProxyCommand=x\n' > "$T/appdata/screenshot-drop/host"
 out=$(run_ps); rc=$?
 assert_eq "shot.ps1 rejects a dash host from the config file" "1" "$rc"

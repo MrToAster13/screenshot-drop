@@ -72,6 +72,20 @@ out=$(recv < "$T/small.png"); rc=$?
 assert_eq "missing tag rejected" "1" "$rc"
 assert_eq "bad tags store nothing" "3" "$(count_files)"
 
+# Review finding: a directory, or a symlink to one, at the target name must not
+# swallow the upload. ln would link inside it and still exit 0.
+rm -f "$D"/*.png
+mkdir "$D/2026-01-02_030405-cachy.png"
+mkdir "$T/elsewhere"
+ln -s "$T/elsewhere" "$D/2026-01-02_030405-cachy-2.png"
+out=$(recv cachy < "$T/small.png"); rc=$?
+assert_eq "dir at target name exits 0" "0" "$rc"
+assert_eq "dir and dir symlink skipped" "$D/2026-01-02_030405-cachy-3.png" "$out"
+assert_eq "upload is a regular file" "yes" "$([ -f "$D/2026-01-02_030405-cachy-3.png" ] && [ ! -L "$D/2026-01-02_030405-cachy-3.png" ] && echo yes || echo no)"
+assert_eq "nothing written inside the dir" "0" "$(find "$D/2026-01-02_030405-cachy.png" -type f | wc -l | tr -d ' ')"
+assert_eq "nothing written through the symlink" "0" "$(find "$T/elsewhere" -type f | wc -l | tr -d ' ')"
+rm -rf "$D/2026-01-02_030405-cachy.png" "$D/2026-01-02_030405-cachy-2.png" "$D"/*.png
+
 # Criterion 2: PNGs older than 30 days are removed on upload, newer ones and
 # other files stay.
 rm -f "$D"/*.png

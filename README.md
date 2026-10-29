@@ -98,4 +98,6 @@ installer with `SHOT_HOST` set, or write the config file by hand.
 ## Tests
 
 `bash tests/run.sh` runs every `tests/test_*.sh` with bash and the standard Unix tools, no other
-dependencies. The Windows scripts get static checks only, because the tests run without PowerShell.
+dependencies. `tests/test_shot_ps1.sh` runs `windows/shot.ps1` when Windows PowerShell or pwsh is
+on PATH, as in Git Bash on Windows, and skips otherwise. Without PowerShell, `shot.ps1` gets only
+the static checks in `tests/test_no_host_default.sh`.

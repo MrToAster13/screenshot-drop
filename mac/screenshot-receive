@@ -38,11 +38,15 @@ MAGIC=$(head -c 8 "$TMP" | od -An -tx1 | tr -d ' \n')
 BASE="$DIR/$(date +%Y-%m-%d_%H%M%S)-$TAG"
 DEST="$BASE.png"
 n=1
-until ln "$TMP" "$DEST" 2>/dev/null; do
+# A directory or symlink at the name is skipped too: ln would link inside it.
+until [ ! -e "$DEST" ] && [ ! -L "$DEST" ] && ln "$TMP" "$DEST" 2>/dev/null; do
   n=$((n + 1))
   [ "$n" -le 100 ] || fail "too many uploads with the same name"
   DEST="$BASE-$n.png"
 done
+# If a directory appeared at the name between the check and ln, the link went
+# inside it. Refuse rather than report a path that is not the upload.
+[ -f "$DEST" ] && [ ! -L "$DEST" ] && [ "$DEST" -ef "$TMP" ] || fail "could not store the upload at $DEST"
 
 find "$DIR" -maxdepth 1 -type f -name '*.png' -mtime +"$KEEP_DAYS" -delete 2>/dev/null
 

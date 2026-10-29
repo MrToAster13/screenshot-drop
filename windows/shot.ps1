@@ -40,7 +40,9 @@ if (-not $HostName -and (Test-Path $Config)) {
 }
 if (-not $HostName) { Fail "no upload host: set SHOT_HOST=user@host or write it to $Config" }
 $HostName = $HostName.Trim()
-if ($HostName -notmatch '^[A-Za-z0-9._@:-]+$' -or $HostName.StartsWith("-")) { Fail "bad upload host: $HostName" }
+# -cnotmatch: a case-insensitive match would let .NET fold non-ASCII letters
+# such as U+212A into [A-Za-z].
+if ($HostName -cnotmatch '^[A-Za-z0-9._@:-]+$' -or $HostName.StartsWith("-")) { Fail "bad upload host: $HostName" }
 
 $tmp = Join-Path $env:TEMP ("shot-" + [guid]::NewGuid().ToString("N") + ".png")
 try {
