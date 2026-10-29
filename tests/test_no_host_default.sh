@@ -65,14 +65,26 @@ assert_eq "ssh not called for a dash host" "no" "$([ -f "$T/ssh-args" ] && echo 
 # windows/shot.ps1: no built-in host, reads the config file, clear message.
 # pwsh is not installed on the test host, so these are static checks.
 ps1=$(cat windows/shot.ps1)
-assert_not_contains "shot.ps1 has no default user" "mini@" "$ps1"
+# Any user@host in shot.ps1 must be the generic "user@host" text.
+ps1_hosts=$(grep -oE '[A-Za-z0-9._<>-]+@[A-Za-z0-9._<>-]+' windows/shot.ps1 | grep -vx 'user@host')
+assert_eq "shot.ps1 has no real user@host" "" "$ps1_hosts"
 assert_contains "shot.ps1 reads its config file" 'screenshot-drop\host' "$ps1"
 assert_contains "shot.ps1 fails naming SHOT_HOST" 'Fail "no upload host: set SHOT_HOST' "$ps1"
 
 # Criterion 2: README uses placeholders for host and user.
 readme=$(cat README.md)
-assert_not_contains "README has no /Users/mini" "/Users/mini" "$readme"
-assert_not_contains "README has no mac-mini host" "minis-mac-mini" "$readme"
+# Every /Users/ path and user@host in README.md uses the placeholders.
+readme_users=$(grep -oE '/Users/[^/[:space:]`)]*' README.md | grep -vx '/Users/<user>')
+assert_eq "README has no /Users/ path but /Users/<user>" "" "$readme_users"
+readme_hosts=$(grep -oE '[A-Za-z0-9._<>-]+@[A-Za-z0-9._<>-]+' README.md | grep -vx '<user>@<mac-host>')
+assert_eq "README has no user@host but the placeholder" "" "$readme_hosts"
 assert_contains "README shows a host placeholder" "<user>@<mac-host>" "$readme"
+
+# Review finding SD-1: the real macOS user and host label appear nowhere in
+# tracked files, this test included. The needles are built from parts so this
+# file does not publish them either.
+u=mi; u="${u}ni"
+leak="${u}s-mac|${u}@|/Users/${u}"
+assert_eq "git grep for the real user and host finds nothing" "" "$(git grep -nE "$leak")"
 
 finish
