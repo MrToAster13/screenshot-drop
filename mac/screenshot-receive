@@ -1,0 +1,49 @@
+#!/bin/bash
+# screenshot-receive: the forced command for screenshot-drop upload keys.
+# authorized_keys runs it as
+#   restrict,command="$HOME/.hermes/bin/screenshot-receive <tag>" <key>
+# It reads one PNG on stdin, stores it as ~/screenshots/YYYY-MM-DD_HHMMSS-<tag>.png
+# (adding -2, -3 on a name collision), deletes PNGs there older than 30 days,
+# and prints the stored path. Anything that is not a PNG of at most 50 MB is
+# rejected. Written for macOS /bin/bash 3.2 and the BSD tools.
+set -u
+umask 077
+
+MAX_BYTES=52428800   # 50 MB
+KEEP_DAYS=30
+DIR="$HOME/screenshots"
+
+fail() { echo "screenshot-receive: $1" >&2; exit 1; }
+
+TAG="${1:-}"
+case "$TAG" in
+  ''|*[!a-z0-9]*) fail "bad tag: use a lowercase word such as cachy or win" ;;
+esac
+
+mkdir -p "$DIR" || fail "cannot create $DIR"
+TMP=$(mktemp "$DIR/.incoming.XXXXXX") || fail "cannot create a temp file"
+trap 'rm -f "$TMP"' EXIT
+
+# Read at most one byte past the limit, so an oversized upload is detected
+# without storing all of it.
+head -c $((MAX_BYTES + 1)) > "$TMP" || fail "upload read failed"
+SIZE=$(wc -c < "$TMP" | tr -d ' ')
+[ "$SIZE" -le "$MAX_BYTES" ] || fail "upload is larger than 50 MB"
+
+MAGIC=$(head -c 8 "$TMP" | od -An -tx1 | tr -d ' \n')
+[ "$MAGIC" = "89504e470d0a1a0a" ] || fail "upload is not a PNG"
+
+# ln fails when the name exists, so two uploads in the same second cannot
+# overwrite each other.
+BASE="$DIR/$(date +%Y-%m-%d_%H%M%S)-$TAG"
+DEST="$BASE.png"
+n=1
+until ln "$TMP" "$DEST" 2>/dev/null; do
+  n=$((n + 1))
+  [ "$n" -le 100 ] || fail "too many uploads with the same name"
+  DEST="$BASE-$n.png"
+done
+
+find "$DIR" -maxdepth 1 -type f -name '*.png' -mtime +"$KEEP_DAYS" -delete 2>/dev/null
+
+echo "$DEST"

@@ -20,6 +20,17 @@ hotkey never prompts. On the Mac mini the key is listed in `authorized_keys` wit
 ports. All it can do is store one PNG (max 50 MB) in `~/screenshots`. Remove the line from
 `authorized_keys` to revoke a machine.
 
+The receiver is [`mac/screenshot-receive`](mac/screenshot-receive). It checks the PNG signature
+and the 50 MB limit, names the file, and deletes PNGs in `~/screenshots` older than 30 days.
+`tests/test_receive.sh` covers those rules. To deploy it on the Mac mini:
+
+```bash
+install -m 755 mac/screenshot-receive ~/.hermes/bin/screenshot-receive
+```
+
+Before replacing a running copy, compare it with `diff ~/.hermes/bin/screenshot-receive
+mac/screenshot-receive`.
+
 ## Before you start (both OSes)
 
 1. Tailscale installed and logged in on this OS (dual-boot = each OS is its own Tailscale device).
