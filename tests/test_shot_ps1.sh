@@ -18,7 +18,7 @@ fi
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/appdata"
-printf '\x89PNG\r\n\x1a\nfake' > "$T/img.png"
+png > "$T/img.png"
 APPDATA_W=$(cygpath -w "$T/appdata")
 IMG_W=$(cygpath -w "$T/img.png")
 KEY_W=$(cygpath -w "$T/key")

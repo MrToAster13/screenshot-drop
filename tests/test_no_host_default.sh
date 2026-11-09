@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.." || exit 1
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/home" "$T/bin"
-printf '\x89PNG\r\n\x1a\nfake' > "$T/img.png"
+png > "$T/img.png"
 
 # Fake ssh: records its arguments and prints a remote path like the receiver.
 cat > "$T/bin/ssh" <<EOF
@@ -33,7 +33,7 @@ out=$(run_shot); rc=$?
 assert_eq "shot exits 1 with no host" "1" "$rc"
 assert_contains "message names SHOT_HOST" "SHOT_HOST" "$out"
 assert_contains "message names the config file" ".config/screenshot-drop/host" "$out"
-assert_eq "ssh not called without a host" "no" "$([ -f "$T/ssh-args" ] && echo yes || echo no)"
+assert_eq "ssh not called without a host" "no" "$(exists "$T/ssh-args")"
 
 # The config file supplies the host.
 mkdir -p "$T/home/.config/screenshot-drop"
@@ -60,7 +60,7 @@ assert_contains "XDG host passed to ssh" "carol@xdg.example" "$(cat "$T/ssh-args
 rm -f "$T/ssh-args"
 out=$(run_shot SHOT_HOST=-oProxyCommand=x); rc=$?
 assert_eq "shot rejects a host starting with -" "1" "$rc"
-assert_eq "ssh not called for a dash host" "no" "$([ -f "$T/ssh-args" ] && echo yes || echo no)"
+assert_eq "ssh not called for a dash host" "no" "$(exists "$T/ssh-args")"
 
 # windows/shot.ps1: no built-in host, reads the config file, clear message.
 # Static checks, so they run without PowerShell. tests/test_shot_ps1.sh runs

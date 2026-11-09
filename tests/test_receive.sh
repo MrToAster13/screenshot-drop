@@ -23,10 +23,6 @@ recv() {  # tag; stdin is the upload
 }
 count_files() { find "$D" -type f 2>/dev/null | wc -l | tr -d ' '; }
 
-png() {  # size in bytes: PNG signature padded with zeros
-  { printf '\x89PNG\r\n\x1a\n'; head -c $(($1 - 8)) /dev/zero; }
-}
-
 assert_eq "receiver is executable" "yes" "$([ -x "$RECV" ] && echo yes || echo no)"
 
 # Criterion 2: a non-PNG is rejected and nothing is stored.
@@ -89,13 +85,16 @@ rm -rf "$D/2026-01-02_030405-cachy.png" "$D/2026-01-02_030405-cachy-2.png" "$D"/
 # Criterion 2: PNGs older than 30 days are removed on upload, newer ones and
 # other files stay.
 rm -f "$D"/*.png
-png 100 > "$D/old.png";   touch -d '31 days ago' "$D/old.png"
-png 100 > "$D/recent.png"; touch -d '29 days ago' "$D/recent.png"
-echo keep > "$D/notes.txt"; touch -d '60 days ago' "$D/notes.txt"
+png 100 > "$D/old.png";   age_days 31 "$D/old.png"
+png 100 > "$D/recent.png"; age_days 29 "$D/recent.png"
+echo keep > "$D/notes.txt"; age_days 60 "$D/notes.txt"
+# Review finding: aging by calendar days left a file an hour short of 31*24
+# hours across a DST change, so find -mtime +30 kept it.
+assert_eq "old.png is at least 31*24 hours old" "yes" "$([ $(( $(date +%s) - $(mtime "$D/old.png") )) -ge $((31 * 86400)) ] && echo yes || echo no)"
 recv cachy < "$T/small.png" > /dev/null
-assert_eq "31-day-old PNG removed" "no" "$([ -e "$D/old.png" ] && echo yes || echo no)"
-assert_eq "29-day-old PNG kept" "yes" "$([ -e "$D/recent.png" ] && echo yes || echo no)"
-assert_eq "old non-PNG kept" "yes" "$([ -e "$D/notes.txt" ] && echo yes || echo no)"
+assert_eq "31-day-old PNG removed" "no" "$(exists "$D/old.png")"
+assert_eq "29-day-old PNG kept" "yes" "$(exists "$D/recent.png")"
+assert_eq "old non-PNG kept" "yes" "$(exists "$D/notes.txt")"
 
 # Criterion 3: README links the receiver script.
 assert_contains "README links the receiver" "(mac/screenshot-receive)" "$(cat README.md)"
